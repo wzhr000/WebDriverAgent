@@ -1,0 +1,38 @@
+name: 构建 WebDriverAgent IPA
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: 拉取仓库代码
+        uses: actions/checkout@v3
+
+      - name: 安装 Xcode 工具依赖
+        run: |
+          sudo xcode-select -s /Applications/Xcode_14.2.app
+          xcodebuild -version
+
+      - name: 构建 WebDriverAgent IPA
+        run: |
+          mkdir -p Payload
+          xcodebuild -project WebDriverAgent.xcodeproj \
+            -scheme WebDriverAgentRunner \
+            -sdk iphoneos \
+            -configuration Release \
+            CODE_SIGNING_ALLOWED=NO \
+            BUILD_DIR=build
+
+          cp -r build/Release-iphoneos/WebDriverAgentRunner.app Payload/
+          zip -r ulink-agent-unsigned.ipa Payload
+
+      - name: 上传未签名IPA
+        uses: actions/upload-artifact@v3
+        with:
+          name: ulink-agent-unsigned
+          path: ulink-agent-unsigned.ipa
