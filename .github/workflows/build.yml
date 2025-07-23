@@ -1,39 +1,69 @@
-name: Build WebDriverAgent IPA
+name: Build unsigned WebDriverAgentRunner IPA
 
 on:
-  workflow_dispatch: # 手动触发
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: macos-13  # macOS 构建环境
-
+    runs-on: macos-latest
     steps:
-      - name: Checkout WebDriverAgent
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        repository: wzhr000/WebDriverAgent
+        fetch-depth: 1
 
-      - name: Install dependencies
-        run: |
-          sudo gem install cocoapods
+    - name: Install Carthage
+      run: brew install carthage
 
-      - name: Build .app with xcodebuild
-        run: |
-          xcodebuild -workspace WebDriverAgent.xcworkspace \
-                     -scheme WebDriverAgentRunner \
-                     -sdk iphoneos \
-                     -configuration Release \
-                     -derivedDataPath build
+    - name: Bootstrap dependencies
+      run: ./Scripts/bootstrap.sh -d
 
-      - name: Package .ipa manually (no signing)
-        run: |
-          mkdir -p Payload
-          cp -r build/Build/Products/Release-iphoneos/WebDriverAgentRunner-Runner.app Payload/
-          zip -r WebDriverAgentRunner.ipa Payload
-          mkdir -p output
-          mv WebDriverAgentRunner.ipa output/
-          rm -rf Payload
+    - name: Clean previous build
+      run: xcodebuild clean -project WebDriverAgent.xcodeproj -scheme WebDriverAgentRunner
 
-      - name: Upload IPA artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: WebDriverAgentRunner.ipa
-          path: output/WebDriverAgentRunner.ipa
+    - name: Archive WebDriverAgentRunner (no signing)
+      run: |
+        xcodebuild archive \
+          -project WebDriverAgent.xcodeproj \
+          -scheme WebDriverAgentRunner \
+          -destination 'generic/platform=iOS' \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_REQUIRED=NO \
+          -archivePath ${{ github.workspace }}/build/WebDriverAgentRunner.xcarchive
+
+    - name: Create ExportOptions.plist
+      run: |
+        cat > ExportOptions.plist <<EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" 
+          "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+          <key>method</key>
+          <string>development</string>
+          <key>signingStyle</key>
+          <string>none</string>
+          <key>compileBitcode</key>
+          <false/>
+          <key>stripSwiftSymbols</key>
+          <true/>
+        </dict>
+        </plist>
+        EOF
+
+    - name: Export unsigned IPA
+      run: |
+        xcodebuild -exportArchive \
+          -archivePath ${{ github.workspace }}/build/WebDriverAgentRunner.xcarchive \
+          -exportOptionsPlist ExportOptions.plist \
+          -exportPath ${{ github.workspace }}/build/Unsigned
+
+    - name: Upload unsigned IPA artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: WebDriverAgentRunner-unsigned-ipa
+        path: build/Unsigned/WebDriverAgentRunner.ipa
