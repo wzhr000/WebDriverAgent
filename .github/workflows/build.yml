@@ -16,12 +16,6 @@ jobs:
         repository: wzhr000/WebDriverAgent
         fetch-depth: 1
 
-    - name: Install Carthage
-      run: brew install carthage
-
-    - name: Bootstrap dependencies
-      run: ./Scripts/bootstrap.sh -d
-
     - name: Clean previous build
       run: xcodebuild clean -project WebDriverAgent.xcodeproj -scheme WebDriverAgentRunner
 
