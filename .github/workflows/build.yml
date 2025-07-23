@@ -14,7 +14,6 @@ jobs:
       - name: Install dependencies
         run: |
           sudo gem install cocoapods
-          pod install
 
       - name: Build .app with xcodebuild
         run: |
