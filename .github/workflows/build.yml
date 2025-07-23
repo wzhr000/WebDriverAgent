@@ -1,38 +1,41 @@
-name: 构建 WebDriverAgent IPA
+name: 构建 WebDriverAgent
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-13
 
     steps:
-      - name: 拉取仓库代码
+      - name: 检出代码
         uses: actions/checkout@v3
 
-      - name: 安装 Xcode 工具依赖
+      - name: 安装依赖
         run: |
-          sudo xcode-select -s /Applications/Xcode_14.2.app
-          xcodebuild -version
+          brew install xcpretty
+          sudo gem install cocoapods
+          pod install
 
-      - name: 构建 WebDriverAgent IPA
+      - name: 构建未签名IPA
         run: |
-          mkdir -p Payload
-          xcodebuild -project WebDriverAgent.xcodeproj \
-            -scheme WebDriverAgentRunner \
-            -sdk iphoneos \
-            -configuration Release \
-            CODE_SIGNING_ALLOWED=NO \
-            BUILD_DIR=build
+          xcodebuild -workspace WebDriverAgent.xcworkspace \
+                     -scheme WebDriverAgentRunner \
+                     -sdk iphoneos \
+                     -configuration Release \
+                     -archivePath $PWD/build/WebDriverAgent.xcarchive \
+                     archive
 
-          cp -r build/Release-iphoneos/WebDriverAgentRunner.app Payload/
-          zip -r ulink-agent-unsigned.ipa Payload
+          xcodebuild -exportArchive \
+                     -archivePath $PWD/build/WebDriverAgent.xcarchive \
+                     -exportOptionsPlist ExportOptions.plist \
+                     -exportPath $PWD/build
+
+      - name: 查看输出文件
+        run: ls -al build
 
       - name: 上传未签名IPA
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: ulink-agent-unsigned
-          path: ulink-agent-unsigned.ipa
+          name: ulink-agent-unsigned.ipa
+          path: build/*.ipa
