@@ -1,22 +1,40 @@
-- name: Build .app with xcodebuild
-  run: |
-    xcodebuild -workspace WebDriverAgent.xcworkspace \
-               -scheme WebDriverAgentRunner \
-               -sdk iphoneos \
-               -configuration Release \
-               -derivedDataPath build
+name: Build WebDriverAgent IPA
 
-- name: Package .ipa manually
-  run: |
-    mkdir -p Payload
-    cp -r build/Build/Products/Release-iphoneos/WebDriverAgentRunner-Runner.app Payload/
-    zip -r WebDriverAgentRunner.ipa Payload
-    mkdir -p output
-    mv WebDriverAgentRunner.ipa output/
-    rm -rf Payload
+on:
+  workflow_dispatch: # 手动触发
 
-- name: Upload IPA
-  uses: actions/upload-artifact@v4
-  with:
-    name: WebDriverAgentRunner.ipa
-    path: output/WebDriverAgentRunner.ipa
+jobs:
+  build:
+    runs-on: macos-13  # macOS 构建环境
+
+    steps:
+      - name: Checkout WebDriverAgent
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo gem install cocoapods
+          pod install
+
+      - name: Build .app with xcodebuild
+        run: |
+          xcodebuild -workspace WebDriverAgent.xcworkspace \
+                     -scheme WebDriverAgentRunner \
+                     -sdk iphoneos \
+                     -configuration Release \
+                     -derivedDataPath build
+
+      - name: Package .ipa manually (no signing)
+        run: |
+          mkdir -p Payload
+          cp -r build/Build/Products/Release-iphoneos/WebDriverAgentRunner-Runner.app Payload/
+          zip -r WebDriverAgentRunner.ipa Payload
+          mkdir -p output
+          mv WebDriverAgentRunner.ipa output/
+          rm -rf Payload
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WebDriverAgentRunner.ipa
+          path: output/WebDriverAgentRunner.ipa
