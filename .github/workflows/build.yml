@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-13
+    runs-on: macos-13  # macos-latest 可能即将迁移，建议固定版本
 
     steps:
       - name: 检出代码
@@ -13,7 +13,6 @@ jobs:
 
       - name: 安装依赖
         run: |
-          brew install xcpretty
           sudo gem install cocoapods
           pod install
 
